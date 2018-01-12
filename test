@@ -1,2 +1,840 @@
-﻿tset去111
-本地编辑
+﻿
+$.extend({
+	strToDate: function(str){
+		return new Date(Date.parse(str.replace(/-/g,"/")));
+	},
+	setSelectOption: function(oListbox, sName, sValue){
+		//IE FF both OK 向select中加入option的值
+	    var oOption = document.createElement("option");
+	    oOption.appendChild(document.createTextNode(sName));
+
+	    if (arguments.length == 3) {
+	        oOption.setAttribute("value", sValue);
+	    }
+	    oListbox.appendChild(oOption);
+	},
+	getSecondDeptByFistDept: function(option){ 
+		//根据一级部门获取二级部门json
+		var sKey = "&FistDept="+option;
+		 var datas = $.ajax({
+			  type:"POST",
+			  url: "/" + "SM/XSConfig.nsf" + "/getSecondDeptByFistDept?OpenAgent"+sKey,
+			  async: false,
+			  dataType: 'json',
+			  //data:encodeURI(sKey),
+			  success:function (data, textStatus) {
+				 if(data.result=="error"){
+//					 alert(data.info);
+				 }else{
+//					 return data;
+				 }
+			 	 
+		 	  },
+		 	  error:function(textStatus){
+			 	alert("获取二级部门失败，请联系系统管理员！");
+		 	 }
+		}).responseText;
+		 return JSON.parse(datas);
+	},
+	setRadioValueToText: function(radioName,textName){ 
+		//设置单选按钮的值到普通文本中
+		$("#" + textName + "").val( $('input[name="' + radioName + '"]:checked').val() );
+	}
+	
+});
+
+//module begin
+$.jshl = $.jshl || {};
+if(!$.jshl.hasOwnProperty("defaults")) {
+	$.jshl.defaults = {};
+}
+
+$.extend($.jshl,{
+	version : "1.1.0",
+	htmlDecode : function(value){
+		if(value && (value==='&nbsp;' || value==='&#160;' || (value.length===1 && value.charCodeAt(0)===160))) { return "";}
+		return !value ? value : String(value).replace(/&gt;/g, ">").replace(/&lt;/g, "<").replace(/&quot;/g, '"').replace(/&amp;/g, "&");		
+	},
+	htmlEncode : function (value){
+		return !value ? value : String(value).replace(/&/g, "&amp;").replace(/\"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+	},
+	template : function(format){ //jqgformat
+		var args = $.makeArray(arguments).slice(1), j, al = args.length;
+		if(format==null) { format = ""; }
+		return format.replace(/\{([\w\-]+)(?:\:([\w\.]*)(?:\((.*?)?\))?)?\}/g, function(m,i){
+			if(!isNaN(parseInt(i,10))) {
+				return args[parseInt(i,10)];
+			}
+			for(j=0; j < al;j++) {
+				if($.isArray(args[j])) {
+					var nmarr = args[ j ],
+					k = nmarr.length;
+					while(k--) {
+						if(i===nmarr[k].nm) {
+							return nmarr[k].v;
+						}
+					}
+				}
+			}
+		});
+	}, 
+	msie : function () {
+		return $.jgrid.msiever() > 0;
+	},
+	msiever : function () {
+		var rv =0,
+		sAgent = window.navigator.userAgent,
+		Idx = sAgent.indexOf("MSIE");
+
+		if (Idx > 0)  {
+			rv = parseInt(sAgent.substring(Idx+ 5, sAgent.indexOf(".", Idx)));
+		} else if ( !!navigator.userAgent.match(/Trident\/7\./) ) {
+			rv = 11;
+		}
+		return rv;
+	},
+	stripHtml : function(v) { //过滤html标签
+		v = String(v);
+		var regexp = /<("[^"]*"|'[^']*'|[^'">])*>/gi;
+		if (v) {
+			v = v.replace(regexp,"");
+			return (v && v !== '&nbsp;' && v !== '&#160;') ? v.replace(/\"/g,"'") : "";
+		} 
+			return v;
+	},
+	stripPref : function (pref, id) {
+		var obj = $.type( pref );
+		if( obj === "string" || obj === "number") {
+			pref =  String(pref);
+			id = pref !== "" ? String(id).replace(String(pref), "") : id;
+		}
+		return id;
+	},
+	xmlToJSON : function ( root, options ) {
+		var o = $.extend ( {
+			force_array : [], //[ "rdf:li", "item", "-xmlns" ];
+			attr_prefix : 'attr_'
+		}, options || {} );
+		
+		if(!root) { return; }
+		
+	    var __force_array = {};
+		if ( o.force_array ) {
+			for( var i=0; i< o.force_array.length; i++ ) {
+				__force_array[o.force_array[i]] = 1;
+			}
+		}
+		
+		if(typeof root === 'string') {
+			root = $.parseXML(root);
+		} 
+		if(root.documentElement) {
+			root = root.documentElement;
+		}
+		var addNode = function ( hash, key, cnts, val ) {
+			if(typeof val === 'string') {
+				if( val.indexOf('function') !== -1) {
+					val =  eval( '(' + val +')'); // we need this in our implement
+				} else {
+					switch(val) {
+						case '__EMPTY_ARRAY_' :
+							val = [];
+							break;
+						case '__EMPTY_STRING_':
+							val = "";
+							break;
+						case "false" :
+							val = false;
+							break;
+						case "true":
+							val = true;
+							break;
+					}
+				}
+			} 
+			if ( __force_array[key] ) {
+				if ( cnts === 1 ) {
+					hash[key] = [];
+				}
+				hash[key][hash[key].length] = val;      // push
+			} else if ( cnts === 1 ) {                   // 1st sibling
+				hash[key] = val;
+			} else if ( cnts === 2 ) {                   // 2nd sibling
+				hash[key] = [ hash[key], val ];
+			} else {                                    // 3rd sibling and more
+				hash[key][hash[key].length] = val;
+			}
+		},
+		parseElement = function ( elem ) {
+			//  COMMENT_NODE
+			if ( elem.nodeType === 7 ) {
+				return;
+			}
+
+			//  TEXT_NODE CDATA_SECTION_NODE
+			if ( elem.nodeType === 3 || elem.nodeType === 4 ) {
+				var bool = elem.nodeValue.match( /[^\x00-\x20]/ );
+				if ( bool == null ) return;     // ignore white spaces
+				return elem.nodeValue;
+			}
+			
+			var retval,	cnt = {}, i, key, val;
+
+			//  parse attributes
+			if ( elem.attributes && elem.attributes.length ) {
+				retval = {};
+				for ( i=0; i<elem.attributes.length; i++ ) {
+					key = elem.attributes[i].nodeName;
+					if ( typeof(key) !== "string" )  {
+						continue;
+					}
+					val = elem.attributes[i].nodeValue;
+					if ( ! val ) {
+						continue;
+					}
+					key = o.attr_prefix + key;
+					if ( typeof(cnt[key]) === "undefined" ) {
+						cnt[key] = 0;
+					}
+					cnt[key] ++;
+					addNode( retval, key, cnt[key], val );
+				}
+			}
+
+			//  parse child nodes (recursive)
+			if ( elem.childNodes && elem.childNodes.length ) {
+				var textonly = true;
+				if ( retval ) {
+					textonly = false;
+				}        // some attributes exists
+				for ( i=0; i<elem.childNodes.length && textonly; i++ ) {
+					var ntype = elem.childNodes[i].nodeType;
+					if ( ntype === 3 || ntype === 4 ) {
+						continue;
+					}
+					textonly = false;
+				}
+				if ( textonly ) {
+					if ( ! retval ) {
+						retval = "";
+					}
+					for ( i=0; i<elem.childNodes.length; i++ ) {
+						retval += elem.childNodes[i].nodeValue;
+					}
+				} else {
+					if ( ! retval ) {
+						retval = {};
+					}
+					for ( i=0; i<elem.childNodes.length; i++ ) {
+						key = elem.childNodes[i].nodeName;
+						if ( typeof(key) !== "string" ) {
+							continue;
+						}
+						val = parseElement( elem.childNodes[i] );
+						if ( !val ) {
+							continue;
+						}
+						if ( typeof(cnt[key]) === "undefined" ) {
+							cnt[key] = 0;
+						}
+						cnt[key] ++;
+						addNode( retval, key, cnt[key], val );
+					}
+				}
+			}
+			return retval;
+		};
+		
+	    var json = parseElement( root );   // parse root node
+		if ( __force_array[root.nodeName] ) {
+			json = [ json ];
+		}
+		if ( root.nodeType !== 11 ) {            // DOCUMENT_FRAGMENT_NODE
+			var tmp = {};
+			tmp[root.nodeName] = json;          // root nodeName
+			json = tmp;
+		}
+		return json;
+	},
+	initTestProjectBudget : function (projectCodes,year,budgetNum,StAppRMB){//检测项目预算
+		var dbpath= "pm/ProjectCostManage.nsf";
+		var ajaxResult = $.ajax({
+			type: "POST",
+			url: "/"+dbpath+"/initTestProjectBudget?openagent",
+			dataType: "json", 
+			async : false,
+			data: {
+				 "projectCodes":projectCodes,
+				 "year":year,
+				 "budgetNum":budgetNum,
+				 "StAppRMB":StAppRMB
+			},
+			success: function(jsonObj){	
+//				if(jsonObj.result=="OK"){
+//					alert(jsonObj.info);
+//				}else{
+//					alert(jsonObj.info);
+//					return false
+//				}
+			},
+			error: function(XMLHttpRequest, textStatus){
+				alert("失败："+textStatus); 
+			}
+	 	}).responseJSON;
+		if(ajaxResult.result=="OK"){
+			return true;
+		}else{
+			alert(ajaxResult.info);
+			return false;
+		}
+		
+	},
+	operateProjectCost : function (projectCodes,year,budgetNum,StAppRMB,dbPath,StRelateMatreialID,oper){//操作项目费用
+		var dbpath= "pm/ProjectCostManage.nsf";
+		$.ajax({
+			type: "POST",
+			url: "/"+dbpath+"/operateProjectCost?openagent",
+			dataType: "json", 
+			async : true,
+			data: {
+				 "projectCodes":projectCodes,
+				 "year":year,
+				 "budgetNum":budgetNum,
+				 "StAppRMB":StAppRMB,
+				 "dbPath":dbPath,
+				 "StRelateMatreialID":StRelateMatreialID,
+				 "oper":oper
+			},
+			success: function(jsonObj){	
+//				if(jsonObj.result=="OK"){
+//					alert(jsonObj.info);
+//				}else{
+//					alert(jsonObj.info);
+//					return false
+//				}
+			},
+			error: function(XMLHttpRequest, textStatus){
+				alert("失败："+textStatus); 
+			}
+	 	}); 
+	},
+	selectAccountingSubjects : function (StCompany, StInternalOrderHRID, StBudgetNum, kjkm, kjkmCode){//选择会计科目
+		 option = "XMSZ"+StCompany+StInternalOrderHRID;
+		 var timestamp=new Date().getTime();
+		 var searchformal = 'select Form="AccountingConfig" & OBJNR="' + option + '" & YSKM="' + StBudgetNum + '"';
+		 var param = {
+				      id:"selectAccountingSubjects"+timestamp,
+			          title:df_AppArr[31],
+			          width:"1000px",
+			          grid:{
+			            	pageCount:10,                 //一页多少条数据_chuandicanshu
+			            	filter:true,				//是否需要查询按钮
+			            	index:true,                 //是否需要首列选择，默认false
+			            	indexType:"radio",
+			            	layout:[
+			                    		{name:"会计科目",field:"HKONTXT",allhide:false,sort:true},
+			                    		{name:"会计科目代码",field:"HKONT",allhide:false,sort:true},
+			                    		{name:"年度",field:"GJAHR",allhide:false,sort:true},
+			                        ],
+	        				data : {
+	        					type : "formula",
+	        					value : searchformal,
+	        					server : "",
+	        					dbPath : "pm/ProjectBudgetManage.nsf"
+	        				}
+			              },
+			          callback:function(data){
+			            	             
+			              
+		            	  var result = data.length>0?data[0]:null;
+		            	  if(result){	
+		                      if(typeof(PMCommon_BeforClose)=="function"){
+		                    	  PMCommon_BeforClose(result);
+		                      }
+		            		  document.getElementById(kjkm).value = result["HKONTXT"];
+		            		  document.getElementById(kjkmCode).value = result["HKONT"];
+		            	  }
+			          }
+			        };
+		 digiflow.createGridDialog(param);
+		 return true;
+	},
+	selectAccountingSubjectsByYear : function (StCompany, StInternalOrderHRID, StBudgetNum, year, kjkm, kjkmCode){//选择会计科目按年度
+		 //option = "XMSZ"+StCompany+StInternalOrderHRID;//申请单中选择的公司与项目收支管理平台的公司不一致，容易出问题，关键字都改成项目编码
+		 option = StInternalOrderHRID;
+		 var timestamp=new Date().getTime();
+		 var searchformal = 'select Form="AccountingConfig" & AUFNR="' + option + '" & YSKM="' + StBudgetNum + '" & GJAHR="' + year + '"';
+		 
+		 var param = {
+				      id:"selectAccountingSubjects"+timestamp,
+			          title:df_AppArr[31],
+			          width:"1000px",
+			          grid:{
+			            	pageCount:10,                 //一页多少条数据_chuandicanshu
+			            	filter:true,				//是否需要查询按钮
+			            	index:true,                 //是否需要首列选择，默认false
+			            	indexType:"radio",
+			            	layout:[
+			                    		{name:"会计科目",field:"HKONTXT",allhide:false,sort:true},
+			                    		{name:"会计科目代码",field:"HKONT",allhide:false,sort:true},
+			                    		{name:"年度",field:"GJAHR",allhide:false,sort:true},
+			                        ],
+	        				data : {
+	        					type : "formula",
+	        					value : searchformal,
+	        					server : "",
+	        					dbPath : "pm/ProjectBudgetManage.nsf"
+	        				}
+			              },
+			          callback:function(data){
+		            	  var result = data.length>0?data[0]:null;
+		            	  if(result){	
+		            		  if(typeof(PMCommon_BeforClose)=="function"){
+		                    	  PMCommon_BeforClose(result);
+		                      }
+		            		  document.getElementById(kjkm).value = result["HKONTXT"];
+		            		  document.getElementById(kjkmCode).value = result["HKONT"];
+		            	  }
+			          }
+			        };
+		 digiflow.createGridDialog(param);
+		 return true;
+	},
+	selectBudgetAll : function (kjkm, kjkmCode,rowid){//选择预算科目清单
+		 var timestamp=new Date().getTime();
+		 var searchformal = 'select Form="BudgetConfigAll"';
+		 var param = {
+				      id:"selectBudgetAll"+timestamp,
+			          title:df_AppArr[31],
+			          width:"1000px",
+			          grid:{
+			            	pageCount:10,                 //一页多少条数据_chuandicanshu
+			            	filter:true,				//是否需要查询按钮
+			            	index:true,                 //是否需要首列选择，默认false
+			            	indexType:"radio",
+			            	layout:[
+			                    		{name:"预算科目名称",field:"YSKMTXT",allhide:false,sort:true},
+			                    		{name:"预算科目代码",field:"YSKM",allhide:false,sort:true},
+			                        ],
+	        				data : {
+	        					type : "formula",
+	        					value : searchformal,
+	        					server : "",
+	        					dbPath : "pm/ProjectBudgetManage.nsf"
+	        				}
+			              },
+			          callback:function(data){
+		            	  var result = data.length>0?data[0]:null;
+		            	  if(result){
+		            		  if(rowid==""||rowid==undefined){
+		            			  document.getElementById(kjkm).value = result["YSKMTXT"];
+			            		  document.getElementById(kjkmCode).value = result["YSKM"];
+		            		  }else{
+		            			  document.getElementById(rowid+"_"+kjkm).value = result["YSKMTXT"];
+			            		  document.getElementById(rowid+"_"+kjkmCode).value = result["YSKM"];
+		            		  }
+		            	  }
+			          }
+			              
+			        };
+		 digiflow.createGridDialog(param);
+		 return true;
+	},
+	selectBudget : function (StCompany, StInternalOrderHRID, kjkm, kjkmCode, yearID){//选择预算科目
+		 option = "XMSZ"+StCompany+StInternalOrderHRID;
+		 var timestamp=new Date().getTime();
+		 var searchformal = 'select Form="BudgetConfig" & OBJNR="' + option + '"';
+		 var param = {
+				      id:"selectBudget"+timestamp,
+			          title:df_AppArr[31],
+			          width:"1000px",
+			          grid:{
+			            	pageCount:10,                 //一页多少条数据_chuandicanshu
+			            	filter:true,				//是否需要查询按钮
+			            	index:true,                 //是否需要首列选择，默认false
+			            	indexType:"radio",
+			            	layout:[
+			                    		{name:"预算科目名称",field:"YSKMTXT",allhide:false,sort:true},
+			                    		{name:"预算科目代码",field:"YSKM",allhide:false,sort:true},
+			                    		{name:"预算年度",field:"GJAHR",allhide:false,sort:true},
+			                    		{name:"预算金额",field:"DMBTR",allhide:true,sort:true},
+			                    		{name:"会计科目",field:"HKONTXT",allhide:true,sort:true},
+			                        ],
+	        				data : {
+	        					type : "formula",
+	        					value : searchformal,
+	        					server : "",
+	        					dbPath : "pm/ProjectBudgetManage.nsf"
+	        				}
+			              },
+			          callback:function(data){
+		            	  var result = data.length>0?data[0]:null;
+		            	  if(result){
+		            		  if(kjkm!=undefined) document.getElementById(kjkm).value = result["YSKMTXT"];
+		            		  if(kjkmCode!=undefined) document.getElementById(kjkmCode).value = result["YSKM"];
+		            		  if(yearID!=undefined) document.getElementById(yearID).value = result["GJAHR"];
+		            	  }
+			          }
+			              
+			        };
+		 digiflow.createGridDialog(param);
+		 return true;
+	},
+	selectBudgetByYear : function (StCompany, StInternalOrderHRID, year, kjkm, kjkmCode){//选择预算科目按年度
+//		 option = "XMSZ"+StCompany+StInternalOrderHRID;//申请单中选择的公司与项目收支管理平台的公司不一致，容易出问题，关键字都改成项目编码
+		 option = StInternalOrderHRID;
+		 var timestamp=new Date().getTime();
+		 var searchformal = 'select Form="BudgetConfig" & AUFNR="' + option + '" & GJAHR="' + year + '"';
+		 var param = {
+				      id:"selectBudget"+timestamp,
+			          title:df_AppArr[31],
+			          width:"1000px",
+			          grid:{
+			            	pageCount:10,                 //一页多少条数据_chuandicanshu
+			            	filter:true,				//是否需要查询按钮
+			            	index:true,                 //是否需要首列选择，默认false
+			            	indexType:"radio",
+			            	layout:[
+			                    		{name:"预算科目名称",field:"YSKMTXT",allhide:false,sort:true},
+			                    		{name:"预算科目代码",field:"YSKM",allhide:false,sort:true},
+			                    		{name:"预算年度",field:"GJAHR",allhide:false,sort:true},
+			                    		{name:"预算金额",field:"DMBTR",allhide:true,sort:true},
+			                    		{name:"会计科目",field:"HKONTXT",allhide:true,sort:true},
+			                        ],
+	        				data : {
+	        					type : "formula",
+	        					value : searchformal,
+	        					server : "",
+	        					dbPath : "pm/ProjectBudgetManage.nsf"
+	        				}
+			              },
+			          callback:function(data){
+		            	  var result = data.length>0?data[0]:null;
+		            	  if(result){
+		            		  document.getElementById(kjkm).value = result["YSKMTXT"];
+		            		  document.getElementById(kjkmCode).value = result["YSKM"];
+		            	  }
+			          }
+			              
+			        };
+		 digiflow.createGridDialog(param);
+		 return true;
+	},
+	selectBudgetAndCost : function (StCompany, StInternalOrderHRID, year, kjkm, kjkmCode, budgetrmb, userrmb, rmb, yearId){//选择预算科目及预算使用情况
+		 option = "XMSZ"+StCompany+StInternalOrderHRID;
+		 var timestamp=new Date().getTime();
+		 var searchformal = "/Produce/ViewShow.nsf/getProjectBudgetList?Open&bkey="+option;
+		 var param = {
+				      id:"selectBudgetAndCost"+timestamp,
+			          title:df_AppArr[31],
+			          width:"1000px",
+			          grid:{
+			            	pageCount:10,                 //一页多少条数据_chuandicanshu
+			            	filter:true,				//是否需要查询按钮
+			            	index:true,                 //是否需要首列选择，默认false
+			            	indexType:"radio",
+			            	layout:[
+			                    		{name:"预算科目名称",field:"budgetname",allhide:false,sort:true},
+			                    		{name:"预算科目代码",field:"budgetcode",allhide:false,sort:true},
+			                    		{name:"预算年度",field:"budgetyear",allhide:false,sort:true},
+			                    		{name:"预算金额",field:"projectbudgetrmb",allhide:true,sort:true},
+			                    		{name:"预算使用金额",field:"projectuserrmb",allhide:true,sort:true},
+			                    		{name:"预算剩余金额",field:"projectsurplusrmb",allhide:true,sort:true},
+			                        ],
+	        				data : {
+	        					type : "URL",
+	        					value : searchformal
+	        				}
+			              },
+			          callback:function(data){
+		            	  var result = data.length>0?data[0]:null;
+		            	  if(result){
+		            		  if(kjkm!=undefined) document.getElementById(kjkm).value = result["budgetname"];
+		            		  if(kjkmCode!=undefined) document.getElementById(kjkmCode).value = result["budgetcode"];
+		            		  if(budgetrmb!=undefined) document.getElementById(budgetrmb).value = result["projectbudgetrmb"];
+		            		  if(userrmb!=undefined) document.getElementById(userrmb).value = result["projectuserrmb"];
+		            		  if(rmb!=undefined) document.getElementById(rmb).value = result["projectsurplusrmb"];
+		            		  if(yearId!=undefined) document.getElementById(yearId).value = result["budgetyear"];
+		            	  }
+			          }
+			              
+			        };
+		 digiflow.createGridDialog(param);
+		 return true;
+	},
+	selectProjectAndCost : function (projectname, projectcode, companycode, projectmanage, projectbudgetrmb, projectuserrmb, projectsurplusrmb,companycodevalue){//选择预算科目及预算使用情况
+		var timestamp=new Date().getTime();
+		 var searchformal = "/Produce/ViewShow.nsf/getProjectList?open&companycode="+companycodevalue;
+		 var param = {
+				      id:"selectProjectAndCost"+timestamp,
+			          title:df_AppArr[31],
+			          width:"1000px",
+			          grid:{
+			            	pageCount:10,                 //一页多少条数据_chuandicanshu
+			            	filter:true,				//是否需要查询按钮
+			            	index:true,                 //是否需要首列选择，默认false
+			            	indexType:"radio",
+			            	layout:[
+			                    		{name:"项目名称",field:"projectname",allhide:false,sort:true},
+			                    		{name:"项目代码",field:"projectcode",allhide:false,sort:true},
+			                    		{name:"公司代码",field:"companycode",allhide:false,sort:true},
+			                    		{name:"项目经理",field:"projectmanage",allhide:false,sort:true},
+			                    		{name:"预算金额",field:"projectbudgetrmb",allhide:true,sort:true},
+			                    		{name:"预算使用金额",field:"projectuserrmb",allhide:true,sort:true},
+			                    		{name:"预算剩余金额",field:"projectsurplusrmb",allhide:true,sort:true},
+			                        ],
+	        				data : {
+	        					type : "URL",
+	        					value : searchformal
+	        				}
+			              },
+			          callback:function(data){
+		            	  var result = data.length>0?data[0]:null;
+		            	  if(result){
+		            		  if(projectname!=undefined) document.getElementById(projectname).value = result["projectname"];
+		            		  if(projectcode!=undefined) document.getElementById(projectcode).value = result["projectcode"];
+		            		  if(companycode!=undefined) document.getElementById(companycode).value = result["companycode"];
+		            		  if(projectmanage!=undefined) document.getElementById(projectmanage).value = result["projectmanage"];
+		            		  if(projectbudgetrmb!=undefined) document.getElementById(projectbudgetrmb).value = result["projectbudgetrmb"];
+		            		  if(projectuserrmb!=undefined) document.getElementById(projectuserrmb).value = result["projectuserrmb"];
+		            		  if(projectsurplusrmb!=undefined) document.getElementById(projectsurplusrmb).value = result["projectsurplusrmb"];
+		            	  }
+			          }
+			              
+			        };
+		 digiflow.createGridDialog(param);
+		 return true;
+	},
+	selectProjectName : function (StCompany, kjkm, kjkmCode,projecttype){//选择项目名称
+		var timestamp=new Date().getTime();
+		 var surl = "/pm/TMaterialsUseNewData.nsf/GetProjectInfo?openagent&StCompany="+StCompany;
+		 var param = {
+				      id:"selectProjectName"+timestamp,
+			          title:df_AppArr[31],
+			          width:"1000px",
+			          grid:{
+			            	pageCount:10,                 //一页多少条数据_chuandicanshu
+			            	filter:true,				//是否需要查询按钮
+			            	index:true,                 //是否需要首列选择，默认false
+			            	indexType:"radio",
+			            	layout:[
+			                    		{name:"项目名称",field:"StProjectName",allhide:false,sort:true},
+			                    		{name:"项目代码",field:"StProjectNum",allhide:false,sort:true},
+			                    		{name:"公司代码",field:"StCorporationCode",allhide:false,sort:true},
+			                    		{name:"项目标识",field:"XMTYP_T",allhide:false,sort:true},
+			                        ],
+			                 data:{type:"URL",value:surl}
+			              },
+			          callback:function(data){
+		            	  var result = data.length>0?data[0]:null;
+		            	  if(result){
+		            		  if(kjkm!=undefined)document.getElementById(kjkm).value = result["StProjectName"];
+		            		  if(kjkmCode!=undefined)document.getElementById(kjkmCode).value = result["StProjectNum"];
+		            		  if(projecttype!=undefined)document.getElementById(projecttype).value = result["XMTYP_T"];
+		            	  }
+			          }
+			              
+			        };
+		 digiflow.createGridDialog(param);
+		 return true;
+	},
+	selectCompanyFormal : function (comName, comCode, city){//选择公司名称
+		var timestamp=new Date().getTime();
+		var searchformal = 'select Form="BUKRS" & ORT01!=""';
+		 var param = {
+				      id:"selectCompany"+timestamp,
+			          title:df_AppArr[31],
+			          width:"1000px",
+			          grid:{
+			            	pageCount:10,                 //一页多少条数据_chuandicanshu
+			            	filter:true,				//是否需要查询按钮
+			            	index:true,                 //是否需要首列选择，默认false
+			            	indexType:"radio",
+			            	layout:[
+			                    		{name:"公司名称",field:"BUTXT",allhide:false,sort:true},
+			                    		{name:"城市",field:"ORT01",allhide:true,sort:true},
+			                    		{name:"公司代码",field:"BUKRS",allhide:false,sort:true},
+			                        ],
+	                        data : {
+	        					type : "formula",
+	        					value : searchformal,
+	        					server : "",
+	        					dbPath : "Application/DigiFlowSAPCodes.nsf"
+	        				}
+			              },
+			          callback:function(data){
+		            	  var result = data.length>0?data[0]:null;
+		            	  if(result){
+		            		  if(comName!=undefined) document.getElementById(comName).value = result["BUTXT"];
+		            		  if(comCode!=undefined) document.getElementById(comCode).value = result["BUKRS"];
+		            		  if(city!=undefined) document.getElementById(city).value = result["ORT01"];
+		            	  }
+			          }
+			        };
+		 digiflow.createGridDialog(param);
+		 return true;
+	},
+	selectCompany : function (comName, comCode, city){//选择公司名称
+		var timestamp=new Date().getTime();
+		var searchformal = "/Produce/ViewShow.nsf/JsonCompanyInfo.xsp?";
+		 var param = {
+				      id:"selectCompany"+timestamp,
+			          title:df_AppArr[31],
+			          width:"1000px",
+			          grid:{
+			            	pageCount:10,                 //一页多少条数据_chuandicanshu
+			            	filter:true,				//是否需要查询按钮
+			            	index:true,                 //是否需要首列选择，默认false
+			            	indexType:"radio",
+			            	layout:[
+			                    		{name:"公司名称",field:"BUTXT",allhide:false,sort:true},
+			                    		{name:"公司代码",field:"BUKRS",allhide:false,sort:true},
+			                    		{name:"城市",field:"ORT01",allhide:false,sort:true},
+			                        ],
+	                        data : {
+	        					type : "URL",
+	        					value : searchformal,
+	        					server : "",
+	        					dbPath : "Application/DigiFlowSAPCodes.nsf"
+	        				}
+			              },
+			          callback:function(data){
+		            	  var result = data.length>0?data[0]:null;
+		            	  if(result){
+		            		  if(comName!=undefined) document.getElementById(comName).value = result["BUTXT"];
+		            		  if(comCode!=undefined) document.getElementById(comCode).value = result["BUKRS"];
+		            		  if(city!=undefined) document.getElementById(city).value = result["ORT01"];
+		            	  }
+			          }
+			        };
+		 digiflow.createGridDialog(param);
+		 return true;
+	},
+	getItemValue : function (jsonData){//获取文档信息
+
+		$.ajax({
+				type: "POST",
+				url: "/" + "pm/ProjectCostManage.nsf" +"/getItemValue?openagent",
+				dataType: "json", 
+				async : true,
+				data: jsonData,
+				success: function(jsonObj){
+					if(typeof(ProcessResult)=="function"){
+						ProcessResult(jsonObj);
+					}
+				},
+				error: function(XMLResponse){
+	 				alert("失败："+XMLResponse); 
+				}
+	 	}); 
+	},
+	getItemsValue : function (jsonData){//获取文档信息
+		$.ajax({
+				type: "POST",
+				url: "/" + "pm/ProjectCostManage.nsf" +"/getItemsValue?openagent",
+				dataType: "json", 
+				async : false,
+				data: encodeURI(JSON.stringify(jsonData)),
+				success: function(jsonObjArr){
+					if(typeof(ProcessResultArr)=="function"){
+						ProcessResultArr(jsonObjArr);
+					}
+				},
+				error: function(XMLResponse){
+	 				alert("失败："+XMLResponse); 
+				}
+	 	}); 
+	},
+	saveItemValueToTargetDoc : function (jsonData){//向目标文档保存信息
+		$.ajax({
+				type: "POST",
+				url: "/" + "pm/ProjectCostManage.nsf" +"/saveItemValueToTargetDoc?openagent",
+				dataType: "json", 
+				async : false,
+				data: JSON.stringify(jsonData),
+				success: function(jsonObjArr){
+					if(typeof(ProcessResultSave)=="function"){
+						ProcessResultSave(jsonObjArr);
+					}
+				},
+				error: function(XMLResponse){
+	 				alert("失败："+XMLResponse); 
+				}
+	 	}); 
+	},
+	selectCity : function (cityName, cityCode){//选择城市
+		var timestamp=new Date().getTime();
+		var searchformal = 'select Form="jichu_xuanzexiang_neirong" & jichu_xuanzexiang_mingcheng="薪资地"';
+		 var param = {
+				      id:"selectCity"+timestamp,
+			          title:df_AppArr[31],
+			          width:"1000px",
+			          grid:{
+			            	pageCount:10,                 //一页多少条数据_chuandicanshu
+			            	filter:true,				//是否需要查询按钮
+			            	index:true,                 //是否需要首列选择，默认false
+			            	indexType:"radio",
+			            	layout:[
+			                    		{name:"城市名称",field:"jichu_xuanzexiang_neirong",allhide:false,sort:true},
+			                    		{name:"城市代码",field:"SAP_yewushuju_bianma",allhide:true,sort:true},
+			                        ],
+	                        data : {
+	        					type : "formula",
+	        					value : searchformal,
+	        					server : "",
+	        					dbPath : "Application/SAP_peizhixinxi.nsf"
+	        				}
+			              },
+			          callback:function(data){
+		            	  var result = data.length>0?data[0]:null;
+		            	  if(result){
+		            		  if(cityName!=undefined) document.getElementById(cityName).value = result["jichu_xuanzexiang_neirong"];
+		            		  if(cityCode!=undefined) document.getElementById(cityCode).value = result["SAP_yewushuju_bianma"];
+		            	  }
+			          }
+			        };
+		 digiflow.createGridDialog(param);
+		 return true;
+	}
+});
+
+//处理返回数据
+function commonProcessResult(json,dbPath){
+   try{
+	   if(dbPath=="SM/OrderNonormalShipmentData.nsf"){ //非正常出货申请
+		   if(json.result=="ok"){
+			   var showurl = "http://" + location.hostname + "/" + dbPath + "/JsonAssetDetailList.xsp?&StRelateMatreialID=" + $('#StRelateMatreialID').val();
+			   $('#ProducejqGrid').jqGrid('clearGridData');
+			   $('#ProducejqGrid').jqGrid('setGridParam', {
+					url : showurl
+				}).trigger('reloadGrid');
+			   $('#StIsUrgent').val(json.info1);
+			   
+				if(window.location.href.indexOf("openDocument")>0 || window.location.href.indexOf("opendocument")>0 ){ //解决保存后无法取二级部门问题
+					if($("#OrderConfirmDept").val()!=""){
+						setSelectOptionValue();
+						DF_setSelectValue("OrderConfirmSubDept",$("#OrderConfirmSubDeptText").val());
+					}
+				}else{
+					DF_setSelectValue("OrderConfirmDept",json.ZYJBM);
+					$("#OrderConfirmDeptText").val(json.ZYJBM);
+					if($("#OrderConfirmDept").val()!=""){
+						setSelectOptionValue();
+						DF_setSelectValue("OrderConfirmSubDept",json.ZEJBM);
+						$("#OrderConfirmSubDeptText").val(json.ZEJBM);
+					}
+					//获取审批人配置
+					$.jshl.getApprovalPerson( $("#OrderConfirmDeptText").val(), $("#OrderConfirmSubDeptText").val() );
+				}
+				
+				alert(json.info);
+				return false;
+		   }else{
+			   alert(json.info);
+			   return false;
+		   }
+	   }
+   }catch (e){
+      alert(e.message)
+   }
+}
