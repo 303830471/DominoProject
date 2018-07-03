@@ -1,0 +1,565 @@
+Option Public
+Option Declare
+
+%REM
+	
+	'*********************************************************************************************
+	'* Version:		1.0.0
+	'* Properties:	rootNode:设置xml root节点,一般先调用getConfigXmlObject返回之后然后在设置
+	'*						
+	'*
+	'* Methods:		GetConfigXmlObject:得到应用对应的xml配置返回root节点	
+	'*SetNodeValue(tagName As String,strvalue As String)设置xml标签值，多个默认设置第一个
+	'*GetNodeValue(tagName As String)获取xml标签值，多个默认取第一个值
+	'*PrintAllNodes msgbox 所有叶子节点的值,测试的时候用
+	'*GetNodeAttributeValue(node As NotesDOMNode,attName As String),得到dom节点属性值
+	 *FilterEmptyNode(NotesDOMNode) return 数组			
+	'*GetNodeChildren(NotesDOMNode) 过滤当前节点的空节点
+	 *GetNodeByID(idstr as string)
+	 *GetNodeByName(nodeName as string)
+	'* Author:		lvjx
+	'* comment:	Domino 解析xml到dom的时候不会忽略xml中的空格，如果有空格会被解析成空的文本节点，注意维护的时候去掉多余空格
+	'*********************************************************************************************
+	
+%END REM
+Class notesDomUtil
+	
+	Private rootDomNode As NotesDOMDocumentNode
+	
+	Property Get rootNode As NotesDOMDocumentNode
+		Set rootNode=Me.rootDomNode
+	End Property
+%REM
+		Sub New
+		Description: Comments for Sub
+%END REM
+	Public Sub New (rootNode As NotesDOMDocumentNode)
+		Set Me.rootDomNode=rootNode
+	End Sub
+	
+'*************************************************************************************************-----------------------------------------------------------
+	'-函数功能：返回指定节点第一个节点的值，没有则返回空	
+'*************************************************************************************************-----------------------------------------------------------
+	
+	Public Function GetNodeValue(elementNode As Variant) As String
+		
+		On Error Goto err_handle		
+		
+		Dim returnValue As String
+		returnValue=""
+		Dim textNode As NotesDOMNode		
+		If elementNode.Haschildnodes Then
+			Set textNode = elementNode.FirstChild
+			If Not textNode.isNull Then
+				returnValue = Trim(textNode.NodeValue)				
+			End If
+		End If	   
+		GetNodeValue=returnValue
+		Exit Function	
+err_handle:
+		Call printError
+		Exit Function	
+	End Function
+	
+%REM
+*************************************************************************************************
+		Function GetNodeAttributeValue
+		Description: node 节点对象
+		attName:属性名称
+*************************************************************************************************
+%END REM
+	Public Function GetNodeAttributeValue(node As Variant,attName As String) As Variant
+		Dim attrs As NotesDOMNamedNodeMap
+		Dim attNode As NotesDOMAttributeNode
+		Dim attValue As String
+		Set attrs = node.Attributes 
+		Dim i As Integer
+		For i = 1 To attrs.Numberofentries     
+			Set attNode= attrs.GetItem(i)	       
+			If attNode.NodeName=Trim(attName) Then
+				attValue=Trim(attNode.NodeValue)
+				Goto returnResult
+			End If	      
+		Next
+returnResult:
+		GetNodeAttributeValue=attValue
+	End Function
+	
+	
+	
+%REM
+		Function GetNodeChildren
+		Description: 循环该节点的直属孩子节点，并存入数组中返回
+%END REM
+	Public Function GetNodeChildren(pnode As NotesDOMNode) As Variant
+		On Error Goto errh
+		Dim node As NotesDOMNode		
+		MsgBox "---"+pnode.nodeName
+		Dim nodeArray() As Variant
+		Dim domNode As NotesDOMNode
+		Dim sibNode As NotesDOMNode
+		Dim i As Long
+		If pnode.Haschildnodes Then
+			ReDim Preserve nodeArray(pnode.Numberofchildnodes-1)
+			Set domNode=pnode.Firstchild			
+			For i=0 To pnode.Numberofchildnodes	
+				MsgBox "domNode="+domNode.Nodename
+				If Not domNode.Isnull Then
+					
+					Set nodeArray(i)=domNode
+				End If
+				Set sibNode=domNode.Nextsibling
+				If Not sibNode.Isnull Then
+					Set domNode=sibNode
+				Else
+					Goto returnRes
+				End If			
+			Next
+		Else
+			Redim Preserve nodeArray(0)
+		End If
+returnRes:
+		GetNodeChildren=nodeArray
+		Exit Function
+errh:
+		Call printError()
+	End Function
+	
+	
+%REM
+*************************************************************************************************
+	Function GetNodeByID
+	Description: 根据节点的id属性得到node对象
+	return :NotesDomNode或null
+*************************************************************************************************	
+%END REM
+	Public Function GetNodeByID(idstr As String) As Variant
+		On Error Goto errh	
+		Dim nodelist As NotesDOMNodeList
+		Dim node As NotesDOMNode
+		Dim tmpNode As NotesDOMNode
+		Dim nodeTmpValue As String	
+		Dim i As Integer
+		Dim attrs As NotesDOMNamedNodeMap
+		Dim attNode As NotesDOMAttributeNode
+		Dim attValue As String
+		Dim returnObj As Variant
+		returnObj=Null
+		Set nodelist=rootNode.Getelementsbytagname("*")
+		For i=1 To nodelist.Numberofentries		
+			Set node=nodelist.Getitem(i)	
+			Set attrs = node.Attributes 
+			Dim ai As Integer
+	      	'循环属性
+			For ai = 1 To attrs.Numberofentries     
+				Set attNode= attrs.GetItem(ai)	       
+				If Ucase(attNode.NodeName)="ID"Then
+					If Ucase(attNode.NodeValue)=Ucase(idstr) Then
+						Set returnObj=node
+						Goto returnResult
+					End If
+					
+				End If	      
+			Next
+		Next
+		
+returnResult:
+		If Isnull(returnObj) Then
+			GetNodeByID=returnObj
+		Else
+			Set GetNodeByID=returnObj
+		End If
+		
+		Exit Function
+errh:
+		Call printError()
+	End Function
+	
+%REM
+	*************************************************************************************************
+	Function GetNodeByID
+	Description: 根据节点的name属性得到node对象,不分大小写
+	return :NotesDomNode或null
+	***************************************************************************************************
+%END REM
+	Public Function GetNodeByName(nameStr As String) As Variant
+		On Error Goto errh	
+		Dim nodelist As NotesDOMNodeList
+		Dim node As NotesDOMNode
+		Dim tmpNode As NotesDOMNode
+		Dim nodeTmpValue As String	
+		Dim i As Integer
+		Dim attrs As NotesDOMNamedNodeMap
+		Dim attNode As NotesDOMAttributeNode
+		Dim attValue As String
+		Dim returnObj As Variant
+		returnObj=Null
+		Set nodelist=rootNode.Getelementsbytagname("*")
+		For i=1 To nodelist.Numberofentries		
+			Set node=nodelist.Getitem(i)	
+			Set attrs = node.Attributes 
+			Dim ai As Integer
+	      	'循环属性
+			For ai = 1 To attrs.Numberofentries     
+				Set attNode= attrs.GetItem(ai)	       
+				If Ucase(attNode.NodeName)="NAME"Then
+					If Ucase(attNode.NodeValue)=Ucase(nameStr) Then
+						Set returnObj=node
+						Goto returnResult
+					End If
+					
+				End If	      
+			Next
+		Next
+		
+returnResult:
+		If Isnull(returnObj) Then
+			GetNodeByName=returnObj
+		Else
+			Set GetNodeByName=returnObj
+		End If
+		Exit Function
+errh:
+		Call printError()
+	End Function
+	
+%REM
+	Function GetNodeByPath
+	Description: 根据标签返回指定的节点格式"node1->node2[2]->node3"，找不到返回null,开始节点随便制定,默认从root节点
+	
+	注意：多个节点用数组方式写，下标从1开始
+	多个节点不写下标则返回第一个节点
+	areturn :  notesDomNode,null
+%END REM
+	Private searchNodePath As String
+	Public Function GetNodeByPath(npath As String) As Variant
+		On Error Goto errh	
+		Dim nodeArray As Variant
+		Dim nodelist As NotesDOMNodeList
+		Dim fnode As NotesDOMNode
+		Dim node As NotesDOMNode
+		Dim childnodes As Variant
+		
+		Dim i As Integer
+		Dim result As Variant
+		Me.searchNodePath=npath
+%REM
+	
+
+	If not InStr(npath,"->") Then
+		Error 1003,"节点路径不对，路径分隔符请用->"
+	End If
+%END REM
+		
+		nodeArray=Split(npath,"->")
+		If Ubound(nodeArray)>=0 Then
+	   	'得到第一个节点	   
+			Set nodelist=Me.rootDomNode.Getelementsbytagname(GetFormatString(nodeArray(0)))
+		  	'如果节点名称不唯一应以数组方式传入字符串node2[2]方式
+			If nodelist.Numberofentries>0 Then
+				
+				If GetSubLocateFromString(nodeArray(0))>nodelist.Numberofentries Then
+					Error 1004,"指定名称节点 <"+Cstr(nodeArray(0)) + "> 数组下标个数大于dom中节点个数"
+				Else
+					Set fnode=nodelist.Getitem(GetSubLocateFromString(nodeArray(0)))
+				End If
+			Else
+				Set fnode=nodelist.Getitem(1)
+			End If
+		End If
+		
+		Set node=fnode
+		If Ubound(nodeArray)>=1 Then
+			For i=1 To Ubound(nodeArray)	  			
+				childnodes=GetNodeChildByTagName(node,GetFormatString(nodeArray(i)))
+	  			'给定下标大于节点的孩子节点数，直接报错并返回	  			
+				If (GetSubLocateFromString(nodeArray(i))-1)>Ubound(childnodes) Then
+					Error 1004,"没找到"+ npath+"中,标签名为"+Cstr(nodeArray(i))+"指定数组下标大于节点数"
+				End If
+				
+				If Ubound(childnodes)>0 Then
+					
+					Set node=childnodes(i-1)
+					
+				Else
+					'节点指定tagName节点数<1直接返回
+					Set node=childnodes(0)
+				End If				
+			Next	  		
+		End If
+		
+		Set GetNodeByPath=node
+		Exit Function
+errh:
+		Call printError()
+		GetNodeByPath=Null
+	End Function
+	
+%REM
+	Function GetNodeChildByTagName
+	Description: 从指定节点中返回指定名称的节点
+	返回值：null nodeArray
+%END REM
+	Private Function  GetNodeChildByTagName(cnode As NotesDOMNode,tagStr As String) As Variant
+		On Error Goto errh	
+		Dim childsNode As Variant
+		Dim resultNodeArray() As NotesDOMNode
+		Dim tmpArray(0) As NotesDOMNode	
+		Dim hasTagName As Boolean
+		hasTagName=False
+		Dim i As Integer
+		i=0
+		
+		childsNode=Me.GetNodeChildren(cnode)
+		Forall child In childsNode
+			If Typename(child)<>"EMPTY" Then
+				If Trim(Ucase(child.nodeName))=Trim(Ucase(tagStr)) Then
+					Redim Preserve resultNodeArray(i) As NotesDOMNode
+					Set resultNodeArray(i)=child
+					i=i+1
+					hasTagName=True
+					Goto returnFun
+				End If
+			End If
+			
+		End Forall
+		If Not hasTagName Then
+			Error 1004, Me.searchNodePath+"节点:"+cnode.Nodename+"中没有找到子节点："+tagStr
+		End If
+returnFun:
+		GetNodeChildByTagName=resultNodeArray
+		Exit Function
+errh:
+		Call printError()
+		GetNodeChildByTagName=Null
+	End Function
+	
+	
+	
+%REM
+	Function GetSubLocateFromString
+	Description: 根据node[1]字符串返回括号中的数字,如果没有指定数组样式则返回1
+%END REM
+	Private Function GetSubLocateFromString(subStr As String) As Integer
+		On Error Goto errh	
+		Dim returnTmp As Integer
+		Dim starts As Integer
+		Dim ends  As Integer 
+		returnTmp=1
+		starts=Instr(subStr,"[")
+		ends=Instr(subStr,"]")	
+		If starts>0 Then
+			returnTmp=Cint(Mid(subStr,starts+1,1))
+		End If
+		
+		GetSubLocateFromString=returnTmp
+		Exit Function
+errh:
+		Call printError()
+	End Function
+	
+%REM
+	Function GetSubLocateFromString
+	Description: 根据node[1]字符串返回去掉括号的字符
+%END REM
+	Private Function GetFormatString(subStr As String) As String
+		On Error Goto errh	
+		Dim returnTmp As String
+		Dim starts As Integer
+		Dim ends  As Integer	
+		starts=Instr(subStr,"[")
+		ends=Instr(subStr,"]")
+		If starts>0 Then
+			returnTmp=Cstr(Mid(subStr,1,starts-1))
+		Else
+			returnTmp=subStr
+		End If
+		
+		GetFormatString=returnTmp
+		Exit Function
+errh:
+		Call printError()
+	End Function
+	
+'-----------------------------------------------------------
+'-函数功能：从指定的XML结点中设置文本节点值，如果该节点没有文本几点会自动创建
+'-参数说明：
+'-返回值：
+'其他：如果有多个重名的结点，只取第一个
+'-----------------------------------------------------------
+	Public Function SetNodeValue(elementNode As Variant,strvalue As String)
+		
+		On Error Goto err_handle		
+		Dim textNode  As NotesDOMNode		
+		If Not elementNode.isNull Then						
+			If elementNode.Numberofchildnodes=0 Then
+				Set textNode = rootDomNode.CreateTextNode(Trim(strvalue))				
+				Call elementNode.Appendchild(textNode)				
+			Else
+				Set textNode=elementNode.Firstchild
+				textNode.Nodevalue=Trim(strvalue)					
+			End If
+		End If		
+		Exit Function	
+err_handle:
+		Call printError
+		Exit Function	
+	End Function
+%REM
+	
+%END REM
+%REM
+	Function SetNodeValueByTagName
+	Description: 设置节点的值，重名的取第一个节点
+%END REM
+	Public Function SetNodeValueByTagName(tagName As String,newValue As String)
+		On Error Goto err_handle		
+		Dim nodelist As NotesDOMNodeList
+		Dim node As NotesDOMNode
+		Set nodelist=Me.rootDomNode.Getelementsbytagname(tagName)
+		If nodelist.Numberofentries>0 Then
+			Set node=nodelist.Getitem(1)
+			Call SetNodeValue(node,newValue)
+		Else
+			Error 1003,"没有找到 "+tagName+" 的节点"
+		End If
+		Exit Function	
+err_handle:
+		Call printError()
+		Exit Function	
+	End Function
+%REM
+*************************************************************************************************
+		Function SetNodeValueByID
+		Description: 根据节点的id属性赋值
+*************************************************************************************************		
+%END REM
+	Public Function SetNodeValueByID(idstr As String,newstr As String)
+		On Error Goto errh	
+		Dim node As NotesDOMNode
+		Dim textNode As NotesDOMTextNode
+		If Trim(idstr)="" Then
+			Return
+		End If
+		If Isnull(GetNodeByID(idstr)) Then
+			
+			Error 1002,"notesDocumentNode 没有找到id为 "+idstr+"节点"
+		Else
+			Set node=GetNodeByID(idstr)								
+			If node.Numberofchildnodes=0 Then
+				Set textNode = Me.rootDomNode.CreateTextNode(Trim(newstr))				
+				Call node.Appendchild(textNode)				
+			Else
+				Set textNode=node.Firstchild
+				textNode.Nodevalue=Trim(newstr)					
+			End If
+		End If
+		Exit Function 
+errh:
+		Call printError()
+	End Function
+%REM
+	*************************************************************************************************
+	打印错信息
+	*************************************************************************************************
+%END REM
+	Public Function printError
+		Dim tmpstr As String
+		tmpstr=tmpstr+"  FunctionOrSub Name="+Cstr(Getthreadinfo(10))			
+		tmpstr=tmpstr+"  Error="+Error+"---on Erl="+Cstr(Erl)
+		Msgbox tmpstr
+		
+	End Function
+	
+	
+%REM
+*************************************************************************************************	
+	Function FilterEmptyNode
+	Description: 清除节点中的空节点，在xml字符串中，空格会被Domino解析成空节点
+*************************************************************************************************
+%END REM
+	Public Function FilterEmptyNode(node As NotesDOMNode) As NotesDOMNode	
+		On Error Goto errh	
+		Dim domNode As NotesDOMNode
+		Dim sibNode As NotesDOMNode	
+			
+		Dim deleteList List As NotesDOMNode
+		Dim i As Long			
+		If node.Haschildnodes And node.Numberofchildnodes>1 Then		
+			Set domNode=node.Firstchild	
+			
+			For i=0 To node.Numberofchildnodes			
+				If Not domNode.Isnull Then						
+					
+					'兄弟节点为空则放入
+					If domNode.Nodename="#text" And  Trim(domNode.Nodevalue)="" Then
+					'存储空节点							
+						Set deleteList(i)=domNode
+						
+					Else
+						
+					End If
+				End If
+				
+				Set sibNode=domNode.Nextsibling
+				If Not sibNode.Isnull Then
+					Set domNode=sibNode
+					
+				Else
+					
+					Goto returnFun
+				End If			
+			Next
+			
+		End If
+		
+returnFun:
+		'删除空节点		
+	
+		ForAll dnode In deleteList	
+										
+			Call node.Removechild(dnode)
+			
+		End ForAll
+			
+			
+		
+		Set FilterEmptyNode=node
+		Exit Function
+errh:
+		Call printError()
+	End Function
+	
+	
+	
+	
+	
+%REM
+		Function printAllNodes
+		Description: msgbox 所有叶子节点的值,测试的时候用
+		注意：domino在解析xml串的时候，空格会被解析为空的文本节点
+%END REM
+	Public Function printAllNodes(rootNode As NotesDOMDocumentNode)
+		Dim nodelist As NotesDOMNodeList
+		Dim node As NotesDOMNode
+		Dim tmpNode As NotesDOMNode
+		Dim nodeTmpValue As String	
+		Dim i As Integer
+		Set nodelist=rootNode.Getelementsbytagname("*")
+		For i=1 To nodelist.Numberofentries
+			nodeTmpValue="DomObject"	
+			Set node=nodelist.Getitem(i)	
+			Set tmpNode=node.Firstchild
+			If Not tmpNode.Isnull Then			
+				If 	tmpNode.Nodetype=DOMNODETYPE_TEXT_NODE Then
+					nodeTmpValue=tmpNode.nodeValue
+				Else
+					nodeTmpValue=tmpNode.Nodetype
+				End If		
+				
+			End If			
+			Msgbox node.Nodename+"----value="+nodeTmpValue+"-------"
+		Next
+	End Function
+	
+End Class

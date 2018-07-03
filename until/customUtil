@@ -1,0 +1,93 @@
+Option Public
+Class customUtil
+	'*********************************************************************************************
+	'* Version:		1.0.0
+	'* updateTime		2011-02-28
+	'* Purpose:		集合一些ls常用的方法和属性，用在一个类中，方便后续升级
+	'* Properties:	 	无
+	'* Methods:		getParameter(keyword As String ,queryStr As String)):	
+	'*				用于ajax的post到后台参数，格式getParameter(name, name=张三&age=11
+	'*				getParameter,decode
+	'*				printErrorStr 打印报错信息到log日志
+	'*	
+	'*						
+	'*********************************************************************************************
+	Public Sub New
+%REM
+构造函数
+%END REM
+		'Msgbox "lsUtil constructor run"
+	End Sub
+	
+	Public Function getParameter(keyword As String ,queryStr As String) As Variant 
+		Dim ar As Variant
+		On Error Goto error_getParameter
+		Dim tmpStr As String
+		getParameter=""
+		If queryStr="" Then Exit Function
+		strAr=Split(queryStr,"&")
+		
+		For i=0 To Ubound(strAr)
+			If Instr(strAr(i),keyword) Then
+				getParameter=Strright(strAr(i),"=")
+				Exit Function
+			End If  
+		Next 
+		Exit Function
+error_getParameter:
+		Msgbox "error_getParameter:"+Error+"erl:"+Cstr(Erl)
+	End Function
+	
+	
+	
+	Function decode(df_unstr As String ) As String 		
+	'功能说明：把Unicode字符串转换成decode格式
+		On Error Goto err_decode
+		Dim f_s As NotesSession
+		Dim f_doc As NotesDocument
+		Dim evalstr As String
+		Set f_s=New NotesSession
+		Set f_doc=f_s.DocumentContext
+		Dim df_unstrs As Variant
+		evalstr=|@URLDecode("Domino"; "| + df_unstr + |")|
+		
+		tmp=Evaluate(evalstr,f_doc)
+		decode=tmp(0)
+		
+		
+		
+		Exit Function
+err_decode:
+		Msgbox "err_decode:"+Error+"erl:"+Cstr(Erl)
+	End Function
+	
+'转换字符串为utf-8 格式	
+	Function encodeStr(estr As String ) As String 		
+	'功能说明：把Unicode字符串转换成decode格式
+		On Error Goto err_encodeStr
+		Dim f_s As NotesSession
+		Dim f_doc As NotesDocument
+		Dim evalstr As String
+		Set f_s=New NotesSession
+		Set f_doc=f_s.DocumentContext
+		Dim df_unstrs As Variant
+		evalstr=|@URLEncode("Domino"; "| + estr + |")|
+		
+		tmp=Evaluate(evalstr,f_doc)
+		
+		encodeStr=tmp(0)		
+		Exit Function
+err_encodeStr:
+		Msgbox "err_encodeStr:"+Error+"erl:"+Cstr(Erl)
+	End Function
+	
+	Public Function printErrorStr(session As NotesSession,fName As String)
+		Dim tmpstr As String
+		tmpstr= "Databse Name="+session.CurrentDatabase.Title+"  Agent Name="+session.CurrentAgent.Name
+		
+		tmpstr=tmpstr+"  FunctionOrSub Name="+CStr(GetThreadInfo(10))			
+		tmpstr=tmpstr+"  Error="+Error+"on Erl="+Cstr(Erl)
+		MsgBox tmpstr
+	End Function	
+	
+End Class
